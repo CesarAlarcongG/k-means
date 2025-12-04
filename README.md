@@ -21,7 +21,7 @@ python -m venv .venv
 ```bash
 .venv\Scripts\activate
 ```
-## ⭐ 3. descargar las depdencias
+## ⭐ 3. Descargar las dependencias
 
 ```bash
 pip install -r requirements.txt
@@ -29,7 +29,7 @@ pip install -r requirements.txt
 ## ⭐ 4. Iniciar el programa 
 
 ```bash
-python app_prediccion.py
+python kmeans_app.py
 ```
 
 Prueba git push

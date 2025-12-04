@@ -1,3 +1,4 @@
+
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import pandas as pd
@@ -7,7 +8,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import silhouette_score
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from mpl_toolkits.mplot3d import Axes3D # Importación necesaria para 3D
+from mpl_toolkits.mplot3d import Axes3D  # Necesario para 3D
 
 class ClusteringApp:
     def __init__(self, master):
@@ -17,93 +18,132 @@ class ClusteringApp:
         self.df = None
         self.features = []
         self.cluster_labels = None
-        self.k_results = {} # Para almacenar los resultados (métricas, centroides, etc.)
+        self.k_results = {}
 
-        # --- Variables de control ---
+        # Variables de control
         self.selected_vars = []
         self.k_var = tk.StringVar(value="3")
         self.random_state_var = tk.StringVar(value="42")
         self.scale_var = tk.BooleanVar(value=True)
         self.plot_canvas = None
 
-        # --- Configuración de la interfaz ---
         self.setup_ui()
 
     def setup_ui(self):
-        # Frame Principal para Controles (Izquierda)
-        control_frame = ttk.LabelFrame(self.master, text="Configuración y Ejecución", padding="10")
-        control_frame.pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=10)
+        # Colores
+        UTP_RED = "#C8102E"
+        UTP_RED_PASTEL = "#F4D6DB"
+        UTP_WHITE = "#FFFFFF"
+        EXCEL_GREEN = "#1D6F42"
 
-        # 1. Carga de CSV
-        ttk.Button(control_frame, text="1. Cargar CSV (clientes_riesgoB.csv)", command=self.load_csv).pack(fill=tk.X, pady=5)
-        
-        # 2. Selección de Variables
-        ttk.Label(control_frame, text="\n2. Seleccionar 2 ó 3 Variables:").pack(anchor='w', pady=(10, 0))
-        self.vars_frame = ttk.Frame(control_frame)
-        self.vars_frame.pack(fill=tk.X, pady=5)
-        # Placeholder para los Checkbuttons
+        self.master.configure(bg=UTP_WHITE)
+        self.master.state('zoomed')
 
-        # 3. Parámetros K-Means
-        param_frame = ttk.LabelFrame(control_frame, text="3. Parámetros K-Means", padding="5")
+        # --- Estilos ttk ---
+        style = ttk.Style()
+        style.configure("Title.TLabelframe.Label", foreground=UTP_RED, font=("Segoe UI", 12, "bold"))
+        style.configure("TLabel", background=UTP_WHITE, font=("Segoe UI", 10))
+        style.configure("TFrame", background=UTP_WHITE)
+        style.configure("TCheckbutton", background=UTP_WHITE)
+
+        # --- PANEL IZQUIERDO ---
+        control_frame = tk.Frame(
+            self.master,
+            bg=UTP_RED_PASTEL,
+            padx=14,
+            pady=14,
+            bd=0
+        )
+        control_frame.pack(side=tk.LEFT, fill=tk.Y)
+
+        # Título del panel usando ttk
+        lab = ttk.Label(control_frame, text="Configuración y Ejecución", font=("Segoe UI", 12, "bold"))
+        lab.pack(anchor="w", pady=(0, 10))
+
+        # BOTÓN CARGAR CSV
+        tk.Button(
+            control_frame,
+            text="📁  Cargar CSV",
+            bg=EXCEL_GREEN,
+            fg="white",
+            font=("Segoe UI", 10, "bold"),
+            height=1,
+            command=self.load_csv
+        ).pack(fill=tk.X, pady=6)
+
+        # Selección de variables
+        ttk.Label(control_frame, text="2. Seleccionar 2 o 3 Variables:", background=UTP_RED_PASTEL,
+                  font=("Segoe UI", 10, "bold")).pack(anchor='w', pady=(10, 0))
+
+        vars_container = tk.Frame(control_frame, bg=UTP_RED_PASTEL)
+        vars_container.pack(fill=tk.X)
+        self.vars_frame = vars_container
+
+        # Parámetros
+        param_frame = ttk.LabelFrame(control_frame, text="3. Parámetros K-Means", padding=10)
         param_frame.pack(fill=tk.X, pady=10)
 
-        # Input k
-        ttk.Label(param_frame, text="Valor de K (≥ 2):").grid(row=0, column=0, sticky='w', padx=5, pady=2)
-        ttk.Entry(param_frame, textvariable=self.k_var, width=10).grid(row=0, column=1, padx=5, pady=2)
+        ttk.Label(param_frame, text="Valor de K (≥ 2):").grid(row=0, column=0, sticky='w', pady=5)
+        ttk.Entry(param_frame, textvariable=self.k_var, width=10).grid(row=0, column=1)
 
-        # Input Random State
-        ttk.Label(param_frame, text="Random State:").grid(row=1, column=0, sticky='w', padx=5, pady=2)
-        ttk.Entry(param_frame, textvariable=self.random_state_var, width=10).grid(row=1, column=1, padx=5, pady=2)
+        ttk.Label(param_frame, text="Random State:").grid(row=1, column=0, sticky='w', pady=5)
+        ttk.Entry(param_frame, textvariable=self.random_state_var, width=10).grid(row=1, column=1)
 
-        # Checkbox Escalado
-        ttk.Checkbutton(param_frame, text="Aplicar StandardScaler", variable=self.scale_var).grid(row=2, column=0, columnspan=2, sticky='w', padx=5, pady=5)
-        
-        # 4. Botón Ejecutar
-        ttk.Button(control_frame, text="4. Ejecutar K-Means", command=self.run_kmeans, style='Accent.TButton').pack(fill=tk.X, pady=10)
-        
-        # 5. Botón Guardar
-        ttk.Button(control_frame, text="5. Guardar Resultados (CSV con Clústeres)", command=self.save_results).pack(fill=tk.X, pady=5)
+        ttk.Checkbutton(param_frame, text="Aplicar StandardScaler", variable=self.scale_var).grid(
+            row=2, column=0, columnspan=2, sticky='w', pady=5
+        )
 
-        # --- Frame Principal para Resultados (Derecha) ---
-        results_frame = ttk.Frame(self.master, padding="10")
-        results_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
+        # BOTÓN EJECUTAR K-MEANS (Rojo)
+        tk.Button(
+            control_frame,
+            text="▶ Ejecutar K-Means",
+            bg=UTP_RED,
+            fg="white",
+            font=("Segoe UI", 10, "bold"),
+            height=1,
+            command=self.run_kmeans
+        ).pack(fill=tk.X, pady=8)
 
-        # Notebook para organizar la salida
+        # BOTÓN GUARDAR RESULTADOS
+        tk.Button(
+            control_frame,
+            text="💾 Guardar Resultados",
+            bg="#444444",
+            fg="white",
+            font=("Segoe UI", 10, "bold"),
+            height=1,
+            command=self.save_results
+        ).pack(fill=tk.X, pady=8)
+
+        # --- PANEL DERECHO ---
+        results_frame = ttk.Frame(self.master, padding=10)
+        results_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+
         self.notebook = ttk.Notebook(results_frame)
         self.notebook.pack(fill=tk.BOTH, expand=True)
 
-        # Pestaña 1: Datos (Treeview)
+        # Pestañas
         data_tab = ttk.Frame(self.notebook)
-        self.notebook.add(data_tab, text="Datos y Estadísticas")
-        self.setup_data_tab(data_tab)
-
-        # Pestaña 2: Gráfico
         plot_tab = ttk.Frame(self.notebook)
-        self.notebook.add(plot_tab, text="Visualización 2D/3D")
+        self.notebook.add(data_tab, text="📄 Datos y Estadísticas")
+        self.notebook.add(plot_tab, text="📊 Visualización 2D/3D")
+
+        self.setup_data_tab(data_tab)
         self.setup_plot_tab(plot_tab)
 
-        # Estilo para el botón de ejecución
-        style = ttk.Style()
-        style.configure('Accent.TButton', foreground='white', background='#0078D4', font=('TkDefaultFont', 10, 'bold'))
-
     def setup_data_tab(self, tab):
-        # Treeview para mostrar los 10 primeros registros
         ttk.Label(tab, text="Primeros 10 Registros del CSV:").pack(anchor='w', pady=(0, 5))
         self.tree = ttk.Treeview(tab, height=5)
         self.tree.pack(fill=tk.X, pady=5)
 
-        # Tabla de Estadísticas de Clústeres
         ttk.Label(tab, text="\nEstadísticas de Clústeres (Tamaño y Medias):").pack(anchor='w', pady=(10, 5))
-        self.stats_tree = ttk.Treeview(tab, height=5)
+        self.stats_tree = ttk.Treeview(tab, height=6)
         self.stats_tree.pack(fill=tk.X, pady=5)
 
-        # Métricas (Inercia y Silhouette)
         self.metrics_label = ttk.Label(tab, text="Métricas: Inercia = N/A | Silhouette = N/A")
-        self.metrics_label.pack(anchor='w', pady=(10, 5))
-
+        self.metrics_label.pack(anchor='w', pady=8)
 
     def setup_plot_tab(self, tab):
-        # Contenedor del Gráfico
         self.plot_container = ttk.Frame(tab)
         self.plot_container.pack(fill=tk.BOTH, expand=True)
 
@@ -111,27 +151,37 @@ class ClusteringApp:
         file_path = filedialog.askopenfilename(
             defaultextension=".csv",
             filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
-            initialfile="clientes_riesgoB.csv" # Nombre sugerido
+            initialfile="clientes_riesgoB.csv"
         )
+
         if not file_path:
             return
 
         try:
             self.df = pd.read_csv(file_path)
-            # Identificar solo columnas numéricas para el clustering
-            self.features = [col for col in self.df.columns if pd.api.types.is_numeric_dtype(self.df[col])]
-            
-            # 1. Manejo de NaN: Usaremos la media (imputación simple)
+
+            # Solo numéricas
+            self.features = [
+                col for col in self.df.columns
+                if pd.api.types.is_numeric_dtype(self.df[col])
+            ]
+
+            # Imputación con la media
             for col in self.features:
-                 if self.df[col].isnull().any():
+                if self.df[col].isnull().any():
                     self.df[col].fillna(self.df[col].mean(), inplace=True)
-            
+
             self.display_data_preview()
             self.update_variable_selection()
-            messagebox.showinfo("Carga Exitosa", f"CSV '{file_path.split('/')[-1]}' cargado correctamente.\nVariables numéricas disponibles: {len(self.features)}")
+
+            messagebox.showinfo(
+                "Carga Exitosa",
+                f"CSV '{file_path.split('/')[-1]}' cargado correctamente.\n"
+                f"Variables numéricas disponibles: {len(self.features)}"
+            )
 
         except Exception as e:
-            messagebox.showerror("Error de Carga", f"No se pudo cargar el archivo CSV: {e}")
+            messagebox.showerror("Error al cargar CSV", str(e))
             self.df = None
 
     def display_data_preview(self):
@@ -173,14 +223,14 @@ class ClusteringApp:
         self.selected_vars = [name for name, var in self.selected_vars_tk.items() if var.get()]
         
         if len(self.selected_vars) > 3:
-            messagebox.showwarning("Advertencia de Variables", "Solo se permiten 2 ó 3 variables para la visualización.")
+            messagebox.showwarning("Advertencia de Variables", "Solo se permiten 2 o 3 variables para la visualización.")
             # Desmarca la última variable seleccionada si excede el límite
             last_selected = self.selected_vars.pop()
             self.selected_vars_tk[last_selected].set(False)
 
     def run_kmeans(self):
         if self.df is None or not self.selected_vars:
-            messagebox.showerror("Error de Ejecución", "Primero cargue el CSV y seleccione 2 ó 3 variables.")
+            messagebox.showerror("Error de Ejecución", "Primero cargue el CSV y seleccione 2 o 3 variables.")
             return
 
         n_vars = len(self.selected_vars)
@@ -344,13 +394,16 @@ class ClusteringApp:
 
 if __name__ == '__main__':
     root = tk.Tk()
-    # Pista para el usuario: Se recomienda el uso de un tema moderno
+
+    # Forzamos fondo blanco
+    root.configure(bg="#FFFFFF")
+
+    # Cargar tema Azure si está disponible
     try:
         root.tk.call("source", "azure.tcl")
-        root.tk.call("set_theme", "dark") # o "light"
-    except Exception:
-        # Si el tema Azure no está disponible, usar el tema por defecto.
+        root.tk.call("set_theme", "light")
+    except:
         pass
-        
+
     app = ClusteringApp(root)
     root.mainloop()
